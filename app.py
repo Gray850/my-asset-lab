@@ -12,7 +12,8 @@ DATA_LANG = {
         "page_title":        "My Asset Lab",
         "app_title":         "My Asset Lab",
         "sidebar_header":    "参数设置",
-        "select_assets":     "选择资产",
+        "select_assets":     "从热门资产中选择",
+        "extra_assets":      "手动输入其他代码（逗号或空格分隔）",
         "time_range":        "时间范围",
         "no_assets":         "请在左侧至少选择一个资产",
         "weights_header":    "自定义权重（%）",
@@ -61,7 +62,8 @@ DATA_LANG = {
         "page_title":        "My Asset Lab",
         "app_title":         "My Asset Lab",
         "sidebar_header":    "Settings",
-        "select_assets":     "Select Assets",
+        "select_assets":     "Select from Hot Assets",
+        "extra_assets":      "Add custom tickers (comma or space separated)",
         "time_range":        "Time Range",
         "no_assets":         "Please select at least one asset on the left.",
         "weights_header":    "Custom Weights (%)",
@@ -255,8 +257,25 @@ st.title(T["app_title"])
 
 st.sidebar.header(T["sidebar_header"])
 
-raw_input = st.sidebar.text_input(T["select_assets"], value="QQQ, GLD, AAPL, IBB")
-tickers = [t.upper() for t in re.split(r"[,\s]+", raw_input.strip()) if t.strip()]
+HOT_ASSETS = [
+    "QQQ", "SPY", "GLD", "AAPL", "MSFT", "NVDA", "TSLA", "AMZN",
+    "GOOG", "META", "NFLX", "AMD", "NKE", "SBUX", "IBB",
+    "510300.SS", "159915.SZ", "0700.HK", "3690.HK", "BTC-USD", "ETH-USD",
+]
+
+selected = st.sidebar.multiselect(
+    T["select_assets"], options=HOT_ASSETS, default=["QQQ", "GLD", "AAPL", "IBB"]
+)
+extra_raw = st.sidebar.text_input(T["extra_assets"], value="")
+extra = [t.upper() for t in re.split(r"[,\s]+", extra_raw.strip()) if t.strip()]
+
+# 合并去重，保持顺序
+seen = set()
+tickers = []
+for t in selected + extra:
+    if t not in seen:
+        seen.add(t)
+        tickers.append(t)
 period = st.sidebar.selectbox(T["time_range"], ["6mo", "1y", "2y", "3y", "5y"], index=1)
 
 if not tickers:
