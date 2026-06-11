@@ -111,11 +111,26 @@ DATA_LANG = {
 
 @st.cache_data(ttl=3600)
 def load_prices(tickers_tuple, period):
-    raw = yf.download(list(tickers_tuple), period=period, auto_adjust=True, progress=False)
-    close = raw["Close"]
-    if isinstance(close, pd.Series):
-        close = close.to_frame(name=tickers_tuple[0])
-    return close.ffill().bfill()
+    def _fetch_and_clean(p):
+        raw = yf.download(list(tickers_tuple), period=p, auto_adjust=True, progress=False)
+        close = raw["Close"]
+        if isinstance(close, pd.Series):
+            close = close.to_frame(name=tickers_tuple[0])
+        # 去掉全 NaN 行和全零列
+        close = close.dropna(how="all")
+        close = close.loc[:, (close != 0).any(axis=0)]
+        # 最后一行含 NaN 或 0 说明当天尚未收盘，直接丢弃
+        if len(close) > 1:
+            last = close.iloc[-1]
+            if last.isna().any() or (last == 0).any():
+                close = close.iloc[:-1]
+        return close.ffill().bfill()
+
+    prices = _fetch_and_clean(period)
+    # 兜底：数据不足时自动扩大至 1y 重新抓取
+    if len(prices) < 5:
+        prices = _fetch_and_clean("1y")
+    return prices
 
 @st.cache_data(ttl=3600)
 def get_risk_free_rate():
@@ -275,12 +290,6 @@ if not run:
 with st.spinner(T["loading"]):
     prices = load_prices(tuple(tickers), period)
     rf = get_risk_free_rate()
-
-# 去掉全为零的列和全为 NaN 的行，再丢弃最后可能未完全开盘的行
-prices = prices.loc[:, (prices != 0).any(axis=0)]
-prices = prices.dropna(how="all")
-if len(prices) > 1:
-    prices = prices.iloc[:-1] if prices.iloc[-1].isna().any() else prices
 
 if prices.empty:
     st.error(T["load_error"])
