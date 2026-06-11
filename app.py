@@ -1,3 +1,4 @@
+import re
 import streamlit as st
 import yfinance as yf
 import pandas as pd
@@ -254,9 +255,8 @@ st.title(T["app_title"])
 
 st.sidebar.header(T["sidebar_header"])
 
-ASSET_POOL = ["QQQ", "GLD", "AAPL", "IBB", "NVDA", "MSFT", "TSLA", "AMZN"]
-
-tickers = st.sidebar.multiselect(T["select_assets"], options=ASSET_POOL, default=["QQQ", "GLD", "AAPL", "IBB"])
+raw_input = st.sidebar.text_input(T["select_assets"], value="QQQ, GLD, AAPL, IBB")
+tickers = [t.upper() for t in re.split(r"[,\s]+", raw_input.strip()) if t.strip()]
 period = st.sidebar.selectbox(T["time_range"], ["6mo", "1y", "2y", "3y", "5y"], index=1)
 
 if not tickers:
