@@ -128,12 +128,18 @@ def get_risk_free_rate():
         return 0.0
 
 def calculate_total_return(price):
+    if price is None or len(price) == 0:
+        return 0.0
     return (price.iloc[-1] / price.iloc[0] - 1) * 100
 
 def calculate_max_drawdown(price):
+    if price is None or len(price) == 0:
+        return 0.0
     return (price / price.cummax() - 1).min() * 100
 
 def calculate_recovery_days(price):
+    if price is None or len(price) == 0:
+        return 0, True
     underwater = price < price.cummax()
     max_days = current = 0
     for uw in underwater:
@@ -155,6 +161,14 @@ def calculate_volatility(price):
     return price.pct_change().dropna().std() * (252 ** 0.5) * 100
 
 def portfolio_metrics(daily_returns, weights, rf_annual=0.0, fee_rate=0.0, buy_and_hold=False):
+    if daily_returns is None or len(daily_returns) == 0:
+        return {
+            "Total Return (%)": 0.0,
+            "Max Drawdown (%)": 0.0,
+            "Volatility (%)": 0.0,
+            "Sharpe Ratio": 0.0,
+            "_value": pd.Series(dtype=float),
+        }
     if buy_and_hold:
         norm_prices = (1 + daily_returns).cumprod()
         port_value = (norm_prices * weights).sum(axis=1)
