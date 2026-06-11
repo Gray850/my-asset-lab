@@ -276,6 +276,12 @@ with st.spinner(T["loading"]):
     prices = load_prices(tuple(tickers), period)
     rf = get_risk_free_rate()
 
+# 去掉全为零的列和全为 NaN 的行，再丢弃最后可能未完全开盘的行
+prices = prices.loc[:, (prices != 0).any(axis=0)]
+prices = prices.dropna(how="all")
+if len(prices) > 1:
+    prices = prices.iloc[:-1] if prices.iloc[-1].isna().any() else prices
+
 if prices.empty:
     st.error(T["load_error"])
     st.stop()
@@ -283,6 +289,9 @@ if prices.empty:
 # ── 计算指标 ──────────────────────────────────────────────────
 
 daily_returns = prices.pct_change().dropna()
+if len(daily_returns) < 2:
+    st.error(T["load_error"])
+    st.stop()
 
 results = []
 for ticker in tickers:
@@ -351,8 +360,8 @@ for ticker, color in zip(tickers, colors):
     ax1.fill_between(drawdown.index, drawdown, 0, alpha=0.12, color=color)
 
 ax1.axhline(0, color="black", linewidth=0.8, linestyle="--")
-ax1.set_title(T["drawdown_title"])
-ax1.set_ylabel(T["drawdown_ylabel"])
+ax1.set_title("Drawdown Chart")
+ax1.set_ylabel("Drawdown (%)")
 ax1.legend(loc="lower left")
 ax1.grid(True, alpha=0.2)
 ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.0f}%"))
@@ -361,11 +370,11 @@ normalized = prices / prices.iloc[0]
 for ticker, color in zip(tickers, colors):
     ax2.plot(normalized.index, normalized[ticker], label=ticker, color=color, linewidth=1.5, alpha=0.75)
 
-ax2.plot(ew["_value"].index, ew["_value"], label=T["label_ew"], linewidth=2.5, linestyle="--", color="gray")
-ax2.plot(cp["_value"].index, cp["_value"], label=T["label_cp"], linewidth=3, color="black")
+ax2.plot(ew["_value"].index, ew["_value"], label="Equal-weight", linewidth=2.5, linestyle="--", color="gray")
+ax2.plot(cp["_value"].index, cp["_value"], label="Custom Portfolio", linewidth=3, color="black")
 
-ax2.set_title(T["portfolio_title"])
-ax2.set_ylabel(T["portfolio_ylabel"])
+ax2.set_title("Portfolio vs Individual Assets")
+ax2.set_ylabel("Normalized Value")
 ax2.legend()
 ax2.grid(True, alpha=0.25)
 
@@ -382,19 +391,19 @@ mv = ef["min_vol"]
 fig2, ax = plt.subplots(figsize=(10, 5))
 
 sc = ax.scatter(ef["vols"], ef["rets"], c=ef["sharpes"], cmap="RdYlGn", s=6, alpha=0.5, linewidths=0)
-plt.colorbar(sc, ax=ax, label=T["ef_colorbar"])
+plt.colorbar(sc, ax=ax, label="Sharpe Ratio")
 
 ax.scatter(ms["vol"], ms["ret"], marker="*", s=400, color="#E74C3C", zorder=5,
-           label=T["ef_max_sharpe"].format(sharpe=ms["sharpe"]))
+           label=f"Max Sharpe ({ms['sharpe']:.2f})")
 ax.scatter(mv["vol"], mv["ret"], marker="*", s=400, color="#3498DB", zorder=5,
-           label=T["ef_min_vol"].format(vol=mv["vol"]))
+           label=f"Min Volatility ({mv['vol']:.1f}%)")
 
 cp_ef_ret = (daily_returns @ custom_weights).mean() * 252 * 100
-ax.scatter(cp["Volatility (%)"], cp_ef_ret, marker="D", s=120, color="black", zorder=5, label=T["ef_cp"])
+ax.scatter(cp["Volatility (%)"], cp_ef_ret, marker="D", s=120, color="black", zorder=5, label="Custom Portfolio")
 
-ax.set_xlabel(T["ef_xlabel"])
-ax.set_ylabel(T["ef_ylabel"])
-ax.set_title(T["ef_title"])
+ax.set_xlabel("Annualized Volatility (%)")
+ax.set_ylabel("Annualized Return (%)")
+ax.set_title("Efficient Frontier (5,000 random portfolios)")
 ax.legend()
 ax.grid(True, alpha=0.2)
 
@@ -440,12 +449,12 @@ fig3, ax3 = plt.subplots(figsize=(12, 5))
 for i in range(n_paths):
     ax3.plot(days_axis, paths[i], color="#3498DB", alpha=0.15, linewidth=0.8)
 
-ax3.plot(days_axis, median_path, color="black", linewidth=2.5, label=T["mc_median"])
+ax3.plot(days_axis, median_path, color="black", linewidth=2.5, label="Median Path")
 
 ax3.axhline(1.0, color="gray", linewidth=0.8, linestyle="--")
-ax3.set_title(T["mc_title"])
-ax3.set_xlabel(T["mc_xlabel"])
-ax3.set_ylabel(T["mc_ylabel"])
+ax3.set_title("Custom Portfolio — 252 Trading Days, 100 Simulated Paths")
+ax3.set_xlabel("Future Trading Days")
+ax3.set_ylabel("Projected Value")
 ax3.legend()
 ax3.grid(True, alpha=0.2)
 
